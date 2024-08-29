@@ -1,0 +1,65 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+}
+
+#fileInputContainer,
+#urlInputContainer,
+#searchContainer {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+input[type="file"],
+input[type="text"],
+button,
+select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #45a049;
+}
+
+#channelList {
+    width: 100%;
+    padding: 10px;
+    margin-top: 20px;
+}
+
+#videoContainer {
+    width: 100%;
+    max-width: 640px;
+    margin: 20px auto;
+}
+
+#errorMessage {
+    color: red;
+    margin-top: 10px;
+    text-align: center;
+}
+
+video {
+    width: 100%;
+    height: auto;
+}

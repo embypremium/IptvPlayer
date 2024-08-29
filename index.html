@@ -1,254 +1,40 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Player</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        #channelList {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .channel {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-            cursor: pointer;
-        }
-        #videoPlayer, #fallbackPlayer {
-            width: 100%;
-            max-width: 640px;
-            margin-top: 20px;
-        }
-        #errorMessage {
-            color: red;
-            margin-top: 10px;
-        }
-        #debugInfo {
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            padding: 10px;
-            white-space: pre-wrap;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>IPTV Player</h1>
-    <form id="inputForm">
-        <label for="inputType">Tipo de entrada:</label>
-        <select id="inputType">
-            <option value="m3u">Lista M3U</option>
-            <option value="credentials">Usuario y Contraseña</option>
-        </select>
-        <br><br>
-        <div id="m3uInput">
-            <label for="m3uList">Lista M3U:</label>
-            <input type="text" id="m3uList" placeholder="URL de la lista M3U">
-        </div>
-        <div id="credentialsInput" style="display:none;">
-            <label for="username">Usuario:</label>
-            <input type="text" id="username">
-            <br><br>
-            <label for="password">Contraseña:</label>
-            <input type="password" id="password">
-            <br><br>
-            <label for="serverUrl">URL del servidor:</label>
-            <input type="text" id="serverUrl">
-        </div>
-        <br>
-        <button type="submit">Cargar canales</button>
-    </form>
 
-    <div id="channelList"></div>
-    <video id="videoPlayer" controls></video>
-    <iframe id="fallbackPlayer" style="display:none;"></iframe>
+    <div id="fileInputContainer">
+        <label for="m3uFile">Select M3U file:</label>
+        <input type="file" id="m3uFile" accept=".m3u,.m3u8">
+    </div>
+
+    <div id="urlInputContainer">
+        <label for="m3uUrl">Or enter M3U URL:</label>
+        <input type="text" id="m3uUrl" placeholder="http://example.com/playlist.m3u">
+        <button id="loadButton">Load</button>
+    </div>
+
+    <div id="searchContainer">
+        <label for="searchInput">Search channels:</label>
+        <input type="text" id="searchInput" placeholder="Enter channel name">
+    </div>
+
+    <select id="channelList">
+        <option value="">Select a channel</option>
+    </select>
+
+    <div id="videoContainer"></div>
+
     <div id="errorMessage"></div>
-    <div id="debugInfo"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script>
-        const inputForm = document.getElementById('inputForm');
-        const inputType = document.getElementById('inputType');
-        const m3uInput = document.getElementById('m3uInput');
-        const credentialsInput = document.getElementById('credentialsInput');
-        const channelList = document.getElementById('channelList');
-        const videoPlayer = document.getElementById('videoPlayer');
-        const fallbackPlayer = document.getElementById('fallbackPlayer');
-        const errorMessage = document.getElementById('errorMessage');
-        const debugInfo = document.getElementById('debugInfo');
-
-        function log(message) {
-            console.log(message);
-            debugInfo.textContent += message + '\n';
-            debugInfo.scrollTop = debugInfo.scrollHeight;
-        }
-
-        inputType.addEventListener('change', () => {
-            if (inputType.value === 'm3u') {
-                m3uInput.style.display = 'block';
-                credentialsInput.style.display = 'none';
-            } else {
-                m3uInput.style.display = 'none';
-                credentialsInput.style.display = 'block';
-            }
-        });
-
-        inputForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            errorMessage.textContent = '';
-            debugInfo.textContent = '';
-            let channels;
-            
-            try {
-                if (inputType.value === 'm3u') {
-                    const m3uUrl = document.getElementById('m3uList').value;
-                    channels = await fetchM3UChannels(m3uUrl);
-                } else {
-                    const username = document.getElementById('username').value;
-                    const password = document.getElementById('password').value;
-                    const serverUrl = document.getElementById('serverUrl').value;
-                    channels = await fetchChannelsWithCredentials(username, password, serverUrl);
-                }
-
-                displayChannels(channels);
-            } catch (error) {
-                errorMessage.textContent = `Error al cargar los canales: ${error.message}`;
-                log(`Error: ${error.message}`);
-            }
-        });
-
-        async function fetchM3UChannels(url) {
-            log(`Fetching M3U from: ${url}`);
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const text = await response.text();
-            log(`M3U Content:\n${text}\n`);
-            const lines = text.split('\n');
-            const channels = [];
-
-            for (let i = 0; i < lines.length; i++) {
-                if (lines[i].startsWith('#EXTINF:')) {
-                    const name = lines[i].split(',')[1];
-                    const url = lines[i + 1].trim();
-                    if (url && !url.startsWith('#')) {
-                        channels.push({ name, url });
-                    }
-                }
-            }
-
-            if (channels.length === 0) {
-                throw new Error('No se encontraron canales en la lista M3U');
-            }
-
-            log(`Channels found: ${channels.length}`);
-            return channels;
-        }
-
-        async function fetchChannelsWithCredentials(username, password, serverUrl) {
-            const response = await fetch(`${serverUrl}/channels`, {
-                headers: {
-                    'Authorization': 'Basic ' + btoa(username + ':' + password)
-                }
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return await response.json();
-        }
-
-        function displayChannels(channels) {
-            channelList.innerHTML = '';
-            channels.forEach(channel => {
-                const channelElement = document.createElement('div');
-                channelElement.className = 'channel';
-                channelElement.textContent = channel.name;
-                channelElement.addEventListener('click', () => playChannel(channel.url));
-                channelList.appendChild(channelElement);
-            });
-        }
-
-        function playChannel(url) {
-            errorMessage.textContent = '';
-            log(`Attempting to play: ${url}`);
-            
-            if (Hls.isSupported()) {
-                const hls = new Hls();
-                hls.loadSource(url);
-                hls.attachMedia(videoPlayer);
-                hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                    log('HLS manifest parsed, attempting to play');
-                    videoPlayer.play().catch(error => log(`Playback error: ${error.message}`));
-                });
-                hls.on(Hls.Events.ERROR, function (event, data) {
-                    const errorDetails = `Error Type: ${data.fatal ? data.fatal : 'unknown'}, Details: ${data.details}`;
-                    log(`HLS Error: ${errorDetails}`);
-                    switch (data.fatal) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            errorMessage.textContent = `Error de red: ${data.details}`;
-                            hls.destroy();
-                            playDirectly(url);
-                            break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                            errorMessage.textContent = `Error de medios: ${data.details}. Intentando recuperar...`;
-                            hls.recoverMediaError();
-                            break;
-                        case Hls.ErrorTypes.OTHER_ERROR:
-                        default:
-                            errorMessage.textContent = `Error desconocido: ${data.details}`;
-                            hls.destroy();
-                            playDirectly(url);
-                            break;
-                    }
-                });
-            } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                log('HLS supported natively, attempting to play');
-                videoPlayer.src = url;
-                videoPlayer.addEventListener('loadedmetadata', function() {
-                    videoPlayer.play();
-                });
-                videoPlayer.addEventListener('error', function() {
-                    log(`Native player error: ${videoPlayer.error.message}`);
-                    playDirectly(url);
-                });
-            } else {
-                log('HLS not supported, attempting to play directly');
-                playDirectly(url);
-            }
-        }
-
-        function playDirectly(url) {
-            log('Attempting to play directly in video element');
-            videoPlayer.src = url;
-            videoPlayer.play().catch(e => {
-                log(`Direct play error: ${e.message}`);
-                errorMessage.textContent = `Error al reproducir directamente: ${e.message}`;
-                playInIframe(url);
-            });
-        }
-
-        function playInIframe(url) {
-            log('Attempting to play in iframe');
-            videoPlayer.style.display = 'none';
-            fallbackPlayer.style.display = 'block';
-            fallbackPlayer.src = url;
-        }
-
-        videoPlayer.addEventListener('play', () => log('Playback started'));
-        videoPlayer.addEventListener('pause', () => log('Playback paused'));
-        videoPlayer.addEventListener('ended', () => log('Playback ended'));
-        videoPlayer.addEventListener('error', (e) => log(`Video error: ${videoPlayer.error.message}`));
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest"></script>
+    <script src="app.js"></script>
 </body>
 </html>
